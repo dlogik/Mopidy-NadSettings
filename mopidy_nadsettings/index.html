@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NAD T777 Web Control</title>
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://cdn.rawgit.com/joewalnes/reconnecting-websocket/master/reconnecting-websocket.js"></script>
+</head>
+
+<body>
+
+<div data-role="page">
+
+    <div data-role="header">
+        <h1>NAD <span id="status"></span></h1>
+    </div><!-- /header -->
+
+    <div role="main" class="ui-content">
+        <form>
+            <label for="slider-2">Volume</label>
+            <input type="range" name="slider-2" id="vol-slider" data-highlight="true" min="0" max="100" value="50">
+
+        <label for="flip-1">Power switch:</label>
+        <select id="power" name="flip-1" data-role="slider">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+        <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend>Source:</legend>
+                <input type="radio" name="radio-source" id="radio-choice-h-2a" value="1">
+                <label for="radio-choice-h-2a">Media</label>
+                <input type="radio" name="radio-source" id="radio-choice-h-2b" value="2">
+                <label for="radio-choice-h-2b">TV</label>
+                <input type="radio" name="radio-source" id="radio-choice-h-2c" value="3">
+                <label for="radio-choice-h-2c">Pi</label>
+    </fieldset>
+
+
+        </form>
+    </div><!-- /content -->
+
+    <div data-role="footer">
+        <h4>Footer content</h4>
+    </div><!-- /footer -->
+
+</div><!-- /page -->
+
+<script>
+    $(document).ready(function () {
+        var host = location.host;
+        var uri = '/nadsettings/nadws';
+
+        var ws = new ReconnectingWebSocket("ws://" + host + uri);
+
+        var sendMsg = function(type, val) {
+            var msg = {
+                type: type,
+                val: val
+            };
+            ws.send(JSON.stringify(msg));
+        };
+
+        ws.onopen = function(evt) {
+            $("#status").text('connected');
+        };
+
+        ws.onclose = function(msg) {
+            $("#status").text('disconnected');
+        };
+
+        ws.onmessage = function (evt) {
+            console.log(evt);
+            var msg = JSON.parse(evt.data);
+
+            if (msg.type == 'Main.Volume') {
+                 $("#vol-slider").val(msg.val).slider("refresh");
+            }
+            if (msg.type == 'Main.Power') {
+                $("#power").val(msg.val).slider("refresh");
+            }
+            if (msg.type == 'Main.Source') {
+                console.log('Main source' + msg.val);
+               $("input[name=radio-source]").val([msg.val]).checkboxradio("refresh");
+            }
+        };
+
+        $("#vol-slider").on("slidestop", function(event,ui) {
+            var vol = $("#vol-slider").val();
+
+            sendMsg('Main.Volume', vol);
+        });
+
+        $("#power").on('slidestop', function(event) {
+            var power = $("#power").val();
+            sendMsg('Main.Power', power);
+        });
+
+        $("input[name=radio-source]").bind( "change", function(event, ui) {
+            var val = $('input[name=radio-source]:checked').val();
+            sendMsg('Main.Source', val);
+        });
+
+    });
+
+</script>
+
+</body>
+</html>
